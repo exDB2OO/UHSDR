@@ -571,6 +571,104 @@ static const RegisterValueSetInfo_t ili9486_regs =
 
 #endif
 
+//DB2OO, 15-OCT-24: added ili9488 a SPI display which needs also "DC" signal connected to PD11 RS
+#ifdef USE_GFX_ILI9488
+static const RegisterValue_t ili9488[] =
+{
+		{ 0xB0,0},			// Interface Mode Control
+
+		{ 0x11,0},
+		{ REGVAL_DELAY, 250},
+
+		{ 0x3A, 0x55},      // COLMOD_PIXEL_FORMAT_SET 16 bit pixel. For 18-bit: 0x66
+
+		{ 0xC0, 0x17},		// Power Control 1
+		{ REGVAL_DATA, 0x15},
+
+		{ 0xC1, 0x41},		// Power Control 2
+		{ 0xC2, 0x22},
+
+		{ 0xC5, 0x00},			// VCOM Control
+		{ REGVAL_DATA, 0x12}, //4D
+		{ REGVAL_DATA, 0x80},
+
+		{ 0xB6, 0x02},			// Display Function Control
+		{ REGVAL_DATA, 0x02}, //42
+		{ REGVAL_DATA, 0x3b},
+
+		{ 0xB1, 0xA0},			// Frame Rate Control
+		/*DB2OO
+		{ REGVAL_DATA, 0x11},
+*/
+		{ 0xB4, 0x02},			// Display Inversion Control
+
+		{ 0xE0, 0x00},			// Positive Gamma Control
+		{ REGVAL_DATA, 0x03},
+		{ REGVAL_DATA, 0x09},
+		{ REGVAL_DATA, 0x08},
+		{ REGVAL_DATA, 0x16},
+		{ REGVAL_DATA, 0x0A},
+		{ REGVAL_DATA, 0x3F},
+		{ REGVAL_DATA, 0x78},
+		{ REGVAL_DATA, 0x4C},
+		{ REGVAL_DATA, 0x09},
+		{ REGVAL_DATA, 0x0A},
+		{ REGVAL_DATA, 0x08},
+		{ REGVAL_DATA, 0x16},
+		{ REGVAL_DATA, 0x1A},
+		{ REGVAL_DATA, 0x0F},
+
+		{ 0xE1, 0x00},			// Negative Gamma Control
+		{ REGVAL_DATA, 0x16},
+		{ REGVAL_DATA, 0x19},
+		{ REGVAL_DATA, 0x03},
+		{ REGVAL_DATA, 0x0F},
+		{ REGVAL_DATA, 0x05},
+		{ REGVAL_DATA, 0x32},
+		{ REGVAL_DATA, 0x45},
+		{ REGVAL_DATA, 0x46},
+		{ REGVAL_DATA, 0x04},
+		{ REGVAL_DATA, 0x0E},
+		{ REGVAL_DATA, 0x0D},
+		{ REGVAL_DATA, 0x35},
+		{ REGVAL_DATA, 0x37},
+		{ REGVAL_DATA, 0x0F},
+/*DB2OO: not required for ILI9488
+		{ 0xE2, 0x0f},
+		{ REGVAL_DATA, 0x32},
+		{ REGVAL_DATA, 0x2e},
+		{ REGVAL_DATA, 0x0b},
+		{ REGVAL_DATA, 0x0d},
+		{ REGVAL_DATA, 0x05},
+		{ REGVAL_DATA, 0x47},
+		{ REGVAL_DATA, 0x75},
+		{ REGVAL_DATA, 0x37},
+		{ REGVAL_DATA, 0x06},
+		{ REGVAL_DATA, 0x10},
+		{ REGVAL_DATA, 0x03},
+		{ REGVAL_DATA, 0x24},
+		{ REGVAL_DATA, 0x20},
+		{ REGVAL_DATA, 0x00},
+*/
+		{ 0x13, 0x00},    //normal display mode ON
+		{ 0x20, 0x00},    //display inversion off
+
+		{ 0x36, 0x048},		// Memory Access Control
+
+		{ 0x11, 0x00},		//Exit Sleep
+		{ REGVAL_DELAY, 250},
+
+		{ 0x29, 0x00},		//Display on
+		{ REGVAL_DELAY, 250},
+};
+
+static const RegisterValueSetInfo_t ili9488_regs =
+{
+    ili9486, sizeof(ili9488)/sizeof(RegisterValue_t)
+};
+
+#endif
+
 
 
 typedef struct
@@ -654,6 +752,7 @@ void UiLcdHy28_SpiInit(bool hispeed, mchf_display_types_t display_type)
 {
     lcd_spi_prescaler = hispeed?SPI_PRESCALE_LCD_HIGH:SPI_PRESCALE_LCD_DEFAULT;
 
+    // DB2OO, 15-OCT-24: do we need this also for the ILI9488 and ILI9341 SPI displays?
 #ifdef USE_GFX_ILI9486
     if (display_type == DISPLAY_RPI_SPI)
     {
@@ -699,7 +798,8 @@ void UiLcdHy28_GpioInit(mchf_display_types_t display_type)
     HAL_GPIO_Init(LCD_RESET_PIO, &GPIO_InitStructure);
 
     // TODO: Function Gets Display Type (!) not controller as parameter
-#ifdef USE_GFX_ILI9486
+    //DB2OO, 15-OCT-24: ILI9488 and ILI9341 also need the RS signal
+#if defined(USE_GFX_ILI9486) || defined(USE_GFX_ILI9488) || defined(USE_GFX_ILI9341)
     if (display_type == DISPLAY_RPI_SPI)
     {
 
@@ -2131,8 +2231,70 @@ static void UiLcdHy28_SetActiveWindow_ILI9486(uint16_t XLeft, uint16_t XRight, u
 }
 #endif
 
-#ifdef USE_GFX_ILI932x
+#ifdef USE_GFX_ILI9488
 
+static uint16_t UiLcdHy28_ReadDisplayId_ILI9488()
+{
+    uint16_t retval = 0x9488;
+
+#ifdef USE_DISPLAY_PAR
+    // we can't read the id from SPI if it is the dumb RPi SPI
+    if (mchf_display.use_spi == false)
+    {
+        retval = UiLcdHy28_ReadReg(0xd3);
+        retval = LCD_RAM;    //first dummy read
+        retval = (LCD_RAM&0xff)<<8;
+        retval |=LCD_RAM&0xff;
+    }
+#endif
+    switch (retval)
+    {
+    case 0x9486:
+    case 0x9488: // ILI9486 - Parallel & Serial interface
+        mchf_display.reg_info  = &ili9486_regs;
+        break;
+    default:
+        retval = 0;
+    }
+    return retval;
+}
+
+static inline void UiLcdHy28_WriteDataSpiStart_Prepare_ILI9488()
+{
+    GPIO_SetBits(LCD_RS_PIO, LCD_RS);
+}
+void UiLcdHy28_WriteIndexSpi_Prepare_ILI9488()
+{
+    GPIO_ResetBits(LCD_RS_PIO, LCD_RS);
+}
+
+static void UiLcdHy28_SetCursorA_ILI9488( unsigned short Xpos, unsigned short Ypos )
+{
+}
+
+static void UiLcdHy28_WriteRAM_Prepare_ILI9488()
+{
+    UiLcdHy28_WriteRAM_Prepare_Index(0x2c);
+}
+
+static void UiLcdHy28_SetActiveWindow_ILI9488(uint16_t XLeft, uint16_t XRight, uint16_t YTop,
+        uint16_t YBottom)
+{
+    UiLcdHy28_WriteReg(0x2a,XLeft>>8);
+    UiLcdHy28_WriteData(XLeft&0xff);
+    UiLcdHy28_WriteData((XRight)>>8);
+    UiLcdHy28_WriteData((XRight)&0xff);
+
+    UiLcdHy28_WriteReg(0x2b,YTop>>8);
+    UiLcdHy28_WriteData(YTop&0xff);
+    UiLcdHy28_WriteData((YBottom)>>8);
+    UiLcdHy28_WriteData((YBottom)&0xff);
+}
+#endif
+
+
+
+#ifdef USE_GFX_ILI932x
 
 static uint16_t UiLcdHy28_ReadDisplayId_ILI932x()
 {
@@ -2397,6 +2559,26 @@ const uhsdr_display_info_t display_infos[] = {
 				.spi_speed=true
         },
         // RPI_SPI NEEDS TO BE LAST IN LIST!!!
+#endif
+		//DB2OO, 15-OCT-24: added
+#if defined(USE_GFX_ILI9488_SPI)
+        {       DISPLAY_RPI_SPI, "ILI9488 3.5",
+                .ReadDisplayId = UiLcdHy28_ReadDisplayId_ILI9488,
+                .SetActiveWindow = UiLcdHy28_SetActiveWindow_ILI9488,
+                .SetCursorA = UiLcdHy28_SetCursorA_ILI9488,
+                .WriteRAM_Prepare = UiLcdHy28_WriteRAM_Prepare_ILI9488,
+                .WriteDataSpiStart_Prepare = UiLcdHy28_WriteDataSpiStart_Prepare_ILI9488,
+                .WriteIndexSpi_Prepare = UiLcdHy28_WriteIndexSpi_Prepare_ILI9488,
+				.WriteReg = UiLcdHy28_WriteReg_ILI,
+				.ReadReg = UiLcdHy28_ReadRegILI,
+				.DrawStraightLine = UiLcdHy28_DrawStraightLine_ILI,
+				.DrawFullRect = UiLcdHy28_DrawFullRect_ILI,
+				.DrawColorPoint = UiLcdHy28_DrawColorPoint_ILI,
+                .spi_cs_port = LCD_CSA_PIO,
+                .spi_cs_pin = LCD_CSA,
+                .is_spi = true,
+				.spi_speed=true
+        },
 #endif
 #endif
 
