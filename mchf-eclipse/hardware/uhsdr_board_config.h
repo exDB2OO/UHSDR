@@ -256,7 +256,11 @@
 #endif
 
 #if !defined(USE_GFX_ILI932x) && !defined(USE_GFX_ILI9486)
+#if !defined(USE_GFX_ILI9488)
 #warning Both USE_GFX_ILI932x and USE_GFX_ILI9486 are disabled, no display driver will be available!
+#else
+#warning  USE_GFX_ILI9488 enabled
+#endif
 #endif
 
 #if defined(UI_BRD_MCHF) && defined(USE_TWO_CHANNEL_AUDIO)

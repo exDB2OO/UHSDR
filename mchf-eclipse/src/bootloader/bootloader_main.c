@@ -75,7 +75,8 @@ static void Bootloader_DisplayInit()
     GPIO_SetBits(TP_CS_PIO, TP_CS);
 
     UiLcdHy28_Init();
-    UiLcdHy28_LcdClear(Black);
+    //DB2OO, 20-OCT-24: Clear with Green background in bootloader
+    UiLcdHy28_LcdClear(Green);
     mchfBl_PinOn(BACKLIGHT);
 
 }

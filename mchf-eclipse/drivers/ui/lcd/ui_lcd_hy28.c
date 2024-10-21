@@ -35,7 +35,10 @@
 #endif
 
 #define USE_SPI_DISPLAY
+//DB2OO, 20-OCT-24
+#ifndef USE_GFX_ILI9488
 #define USE_DISPLAY_PAR
+#endif
 
 
 #if !defined(USE_DISPLAY_PAR) && !defined(USE_SPI_DISPLAY)
@@ -664,7 +667,7 @@ static const RegisterValue_t ili9488[] =
 
 static const RegisterValueSetInfo_t ili9488_regs =
 {
-    ili9486, sizeof(ili9488)/sizeof(RegisterValue_t)
+    ili9488, sizeof(ili9488)/sizeof(RegisterValue_t)
 };
 
 #endif
@@ -692,6 +695,8 @@ static inline bool UiLcdHy28_SpiDisplayUsed()
 {
     bool retval = false;
 #ifdef USE_SPI_DISPLAY
+//DB2OO, 20-OCT-2024
+#warning("USE_SPI_DISPLAY is defined ")
     retval = mchf_display.use_spi;
 #endif
     return retval;
@@ -2188,8 +2193,8 @@ static uint16_t UiLcdHy28_ReadDisplayId_ILI9486()
 #endif
     switch (retval)
     {
-    case 0x9486:
-    case 0x9488: // ILI9486 - Parallel & Serial interface
+    case 0x9488: //DB2OO, 20-OCT-24: ILI9488
+    case 0x9486: // ILI9486 - Parallel & Serial interface
         mchf_display.reg_info  = &ili9486_regs;
         break;
     default:
@@ -2249,9 +2254,8 @@ static uint16_t UiLcdHy28_ReadDisplayId_ILI9488()
 #endif
     switch (retval)
     {
-    case 0x9486:
-    case 0x9488: // ILI9486 - Parallel & Serial interface
-        mchf_display.reg_info  = &ili9486_regs;
+    case 0x9488: // ILI9488 - Parallel & Serial interface
+        mchf_display.reg_info  = &ili9488_regs;
         break;
     default:
         retval = 0;
